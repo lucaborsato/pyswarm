@@ -53,3 +53,8 @@ References
 .. _author: mailto:tisimst@gmail.com
 .. _Particle swarm optimization: http://en.wikipedia.org/wiki/Particle_swarm_optimization
 .. _package homepage: http://pythonhosted.org/pyswarm
+
+FORK
+====
+
+Modified to stop only after the input number of iterations is reached.
