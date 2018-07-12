@@ -18,8 +18,11 @@ def _cons_f_ieqcons_wrapper(f_ieqcons, args, kwargs, x):
     
 def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={}, 
         swarmsize=100, omega=0.5, phip=0.5, phig=0.5, maxiter=100, 
+        check_minvals=False,
         minstep=1e-8, minfunc=1e-8, debug=False, processes=1,
-        particle_output=False):
+        particle_output=False,
+        seed=None
+        ):
     """
     Perform a particle swarm optimization (PSO)
    
@@ -59,6 +62,9 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         (Default: 0.5)
     maxiter : int
         The maximum number of iterations for the swarm to search (Default: 100)
+    check_minvals : boolean
+        If True it will use the minstep/minfunc to stop the search, otherwise
+        it will stop at maxiter (Default False)
     minstep : scalar
         The minimum stepsize of swarm's best position before the search
         terminates (Default: 1e-8)
@@ -74,16 +80,18 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     particle_output : boolean
         Whether to include the best per-particle position and the objective
         values at those.
+    seed : int
+        seed number of random number generatore. (Default None)
    
     Returns
     =======
-    g : array
+    g  : array
         The swarm's best known position (optimal design)
-    f : scalar
+    fg : scalar
         The objective value at ``g``
-    p : array
+    p  : array
         The best known position per particle
-    pf: arrray
+    fp : arrray
         The objective values at each position in p
    
     """
@@ -96,6 +104,10 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
    
     vhigh = np.abs(ub - lb)
     vlow = -vhigh
+
+    # Luca 2018-07-11
+    # init random state
+    np.random.RandomState(seed=seed)
 
     # Initialize objective function
     obj = partial(_obj_wrapper, func, args, kwargs)
@@ -200,25 +212,28 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
                     .format(it, p[i_min, :], fp[i_min]))
 
             p_min = p[i_min, :].copy()
-            #stepsize = np.sqrt(np.sum((g - p_min)**2))
+            
+            if(check_minvals):
+              stepsize = np.sqrt(np.sum((g - p_min)**2))
 
-            #if np.abs(fg - fp[i_min]) <= minfunc:
-                #print('Stopping search: Swarm best objective change less than {:}'\
-                    #.format(minfunc))
-                #if particle_output:
-                    #return p_min, fp[i_min], p, fp
-                #else:
-                    #return p_min, fp[i_min]
-            #elif stepsize <= minstep:
-                #print('Stopping search: Swarm best position change less than {:}'\
-                    #.format(minstep))
-                #if particle_output:
-                    #return p_min, fp[i_min], p, fp
-                #else:
-                    #return p_min, fp[i_min]
-            #else:
-                #g = p_min.copy()
-                #fg = fp[i_min]
+              if np.abs(fg - fp[i_min]) <= minfunc:
+                  print('Stopping search: Swarm best objective change less than {:}'\
+                      .format(minfunc))
+                  if particle_output:
+                      return p_min, fp[i_min], p, fp
+                  else:
+                      return p_min, fp[i_min]
+              elif stepsize <= minstep:
+                  print('Stopping search: Swarm best position change less than {:}'\
+                      .format(minstep))
+                  if particle_output:
+                      return p_min, fp[i_min], p, fp
+                  else:
+                      return p_min, fp[i_min]
+              #else:
+                  #g = p_min.copy()
+                  #fg = fp[i_min]
+                  
             g = p_min.copy()
             fg = fp[i_min]
 
