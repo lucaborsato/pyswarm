@@ -9,10 +9,10 @@ def read(fname):
 setup(
     name='pyswarm',
     version=pyswarm.__version__,
-    author=pyswarm.__author__,
+    author=pyswarm.__author__ + ' - Luca Borsato',
     author_email='tisimst@gmail.com',
-    description='Particle swarm optimization (PSO) with constraint support',
-    url='https://github.com/tisimst/pyswarm',
+    description='Particle swarm optimization (PSO) with constraint support - Luca Borsato',
+    url='https://github.com/lucaborsato/pyswarm',
     license='BSD License',
     long_description=read('README.rst'),
     packages=['pyswarm'],

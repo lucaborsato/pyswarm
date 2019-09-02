@@ -1,22 +1,6 @@
 from functools import partial
 import numpy as np
 
-class pso_results:
-
-    def __init__(self):
-        self.lb = []
-        self.ub = []
-        self.swarmsize = 100
-        self.maxiter = 100
-        self.processes = 1
-        self.seed = None
-        self.g   = []   # The swarm's best known position (optimal design)
-        self.fg  = -1.0 # The objective value at ``g``
-        self.p   = []   # The best known position per particle
-        self.fp  = []   # The objective values at each position in p
-        self.bp  = []   # The best known position of all particle for each generation
-        self.fbp = []   # The objective values as each position bp
-
 def _obj_wrapper(func, args, kwargs, x):
     return func(x, *args, **kwargs)
 
@@ -36,6 +20,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         swarmsize=100, omega=0.5, phip=0.5, phig=0.5, maxiter=100, 
         check_minvals=False,
         minstep=1e-8, minfunc=1e-8, debug=False, processes=1,
+        particle_output=False,
         seed=None
         ):
     """
@@ -92,24 +77,27 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     processes : int
         The number of processes to use to evaluate objective function and 
         constraints (default: 1)
+    particle_output : boolean
+        Whether to include the best per-particle position and the objective
+        values at those.
     seed : int
         seed number of random number generatore. (Default None)
    
     Returns
     =======
-    # g   : array
-    #       The swarm's best known position (optimal design)
-    # fg  : scalar
-    #       The objective value at ``g``
-    # p   : array
-    #       The best known position per particle
-    # fp  : array
-    #       The objective values at each position in p
-    # bp  : array
-    #       The best known position of all particle for each generation
-    # fbp : array
-    #       The objective values as each position bp
-    results : pso_results object
+    g   : array
+          The swarm's best known position (optimal design)
+    fg  : scalar
+          The objective value at ``g``
+    p   : array
+          The best known position per particle
+    fp  : array
+          The objective values at each position in p
+    bp  : array
+          The best known position of all particle for each generation
+    fbp : array
+          The objective values as each position bp
+   
     """
    
     assert len(lb)==len(ub), 'Lower- and upper-bounds must be the same length'
@@ -123,8 +111,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
 
     # Luca 2018-07-11
     # init random state
-    # np.random.RandomState(seed=seed)
-    np.random.seed(seed=seed)
+    np.random.RandomState(seed=seed)
 
     # Initialize objective function
     obj = partial(_obj_wrapper, func, args, kwargs)
@@ -163,21 +150,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     fg = np.inf  # best swarm position starting value
     bp = [] # best gen position
     fbp = [] # best fitness for each bp
-
-    results           = pso_results()
-    results.lb        = lb
-    results.ub        = ub
-    results.swarmsize = S
-    results.maxiter   = maxiter
-    results.processes = processes
-    results.seed      = seed
-    results.g         = g
-    results.fg        = fg
-    results.p         = p
-    results.fp        = fp
-    results.bp        = bp
-    results.fbp       = fbp
-
+    
     # Initialize the particle's position
     x = lb + x*(ub - lb)
 
@@ -191,11 +164,9 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
             fs[i] = is_feasible(x[i, :])
        
     # Store particle's best position (if constraints are satisfied)
-    i_update               = np.logical_and((fx < fp), fs)
-    p[i_update, :]         = x[i_update, :].copy()
-    fp[i_update]           = fx[i_update]
-    results.p[i_update, :] = p[i_update, :]
-    results.fp[i_update]   = fp[i_update]
+    i_update = np.logical_and((fx < fp), fs)
+    p[i_update, :] = x[i_update, :].copy()
+    fp[i_update] = fx[i_update]
 
     # Update swarm's best position
     i_min = np.argmin(fp)
@@ -241,22 +212,42 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         i_update = np.logical_and((fx < fp), fs)
         p[i_update, :] = x[i_update, :].copy()
         fp[i_update] = fx[i_update]
-        results.p[i_update, :] = p[i_update, :]
-        results.fp[i_update] = fp[i_update]
 
         # Compare swarm's best position with global best position
         i_min = np.argmin(fp)
         if fp[i_min] < fg:
-            g = p[i_min, :].copy()
-            fg = fp[i_min]
-            results.g = g
-            results.fg = fg
+            if debug:
+                print('New best for swarm at iteration {:}: {:} {:}'\
+                    .format(it, p[i_min, :], fp[i_min]))
 
+            p_min = p[i_min, :].copy()
+            
+            if(check_minvals):
+              stepsize = np.sqrt(np.sum((g - p_min)**2))
+
+              if np.abs(fg - fp[i_min]) <= minfunc:
+                  print('Stopping search: Swarm best objective change less than {:}'\
+                      .format(minfunc))
+                  if particle_output:
+                      return p_min, fp[i_min], p, fp
+                  else:
+                      return p_min, fp[i_min]
+              elif stepsize <= minstep:
+                  print('Stopping search: Swarm best position change less than {:}'\
+                      .format(minstep))
+                  if particle_output:
+                      return p_min, fp[i_min], p, fp
+                  else:
+                      return p_min, fp[i_min]
+              #else:
+                  #g = p_min.copy()
+                  #fg = fp[i_min]
+                  
+            g = p_min.copy()
+            fg = fp[i_min]
         # update the bp and fbp
         bp.append(g)
         fbp.append(fg)
-        results.bp.append(g)
-        results.fbp.append(fg)
 
         if debug:
             print('Best after iteration {:}: {:} {:}'.format(it, g, fg))
@@ -264,12 +255,10 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
 
     print('Stopping search: maximum iterations reached --> {:}'.format(maxiter))
     
-    if(processes >1):
-        mp_pool.close()
-        mp_pool.join()
-
     if not is_feasible(g):
         print("However, the optimization couldn't find a feasible design. Sorry")
-
-    
-    return results
+    if particle_output:
+        bp, fbp = np.array(bp), np.array(fbp)
+        return g, fg, p, fp, bp, fbp
+    else:
+        return g, fg
